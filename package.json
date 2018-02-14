@@ -1,0 +1,63 @@
+{
+    "name": "ifc",
+    "license": "GPL-3.0",
+    "version": "0.1.0",
+    "author": "Joie",
+    "description": "gs-json to IFC.",
+    "homepage": "https://github.com/limyyj/IFC#readme",
+    "types": "dist/index.d.ts",
+    "main": "dist/index.js",
+    "directories": {
+        "doc": "docs"
+    },
+    "scripts": {
+        "models": "npm run build2015 && npm run gen_ifc_models",
+        "build2015": "tsc && babel --presets es2015 ./dist --out-dir ./dist2015",
+        "gen_ifc_models": "node ./dist2015/src/typescript/generate/gen_ifc_test_models.js",
+        "prepare": "npm run build",
+        "build": "tsc",
+        "test": "karma start ./karma.conf.ts",
+        "testsr": "karma start ./karma.conf.ts --single-run",
+        "docs": "typedoc --out ./docs --json ./docs_json/ifc.json ./src/typescript --module commonjs --exclude \"**/*+(dev|tests).ts\" --mode modules  --excludeExternals"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/limyyj/IFC.git"
+    },
+    "dependencies": {
+        "@types/three": "^0.89.6",
+        "gs-json": "^0.1.55",
+        "mathjs": "^3.20.1",
+        "three": "^0.89.0"
+    },
+    "devDependencies": {
+        "@types/jasmine": "^2.8.6",
+        "@types/node": "^9.4.0",
+        "babel-cli": "^6.26.0",
+        "babel-preset-es2015": "^6.24.1",
+        "jasmine": "^2.9.0",
+        "jasmine-core": "^2.9.1",
+        "karma": "^2.0.0",
+        "karma-chrome-launcher": "^2.2.0",
+        "karma-cli": "^1.0.1",
+        "karma-coverage-istanbul-reporter": "^1.4.1",
+        "karma-html-reporter": "^0.2.7",
+        "karma-jasmine": "^1.1.0",
+        "karma-jasmine-html-reporter": "^0.2.2",
+        "karma-typescript": "^3.0.12",
+        "karma-typescript-es6-transform": "^1.0.3",
+        "karma-typescript-preprocessor": "^0.3.1",
+        "tslint": "^5.9.1",
+        "typedoc": "^0.9.0",
+        "typescript": "^2.7.1"
+    },
+    "bugs": {
+        "url": "https://github.com/limyyj/IFC/issues"
+    },
+    "keywords": [
+        "3d",
+        "modelling",
+        "geometry",
+        "semantics"
+    ]
+}
