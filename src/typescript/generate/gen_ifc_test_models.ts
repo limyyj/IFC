@@ -13,7 +13,7 @@ const path: string = "../IFC/src/assets/ifc/";
 
 if(require.main === module)  {
     console.log("IFC files...");
-    const model: gs.IModel =  new gs.Model(); //models_ifc.genModelTest1();
-    //const ifc_str: string = ifc.gsjson2ifc(model);
-    //writeStrToFile(ifc_str, path + "_test.ifc");
+    const model: gs.IModel = models_ifc.genModelTest1();
+    const ifc_str: string = ifc.gsjson2ifc(model);
+    writeStrToFile(ifc_str, path + "_test.ifc");
 }
