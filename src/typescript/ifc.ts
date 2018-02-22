@@ -70,7 +70,7 @@ const WCS: string=
 `;
 
 export function gsjson2ifc(model: gs.IModel): string {
-    let file: string = header + project + owner + proj_rep + units + "DATA;\n";
+    let file: string = header + "DATA;\n" + project + owner + proj_rep + units + building + WCS;
     let pointnum: number = 1000;
     let wirenum: number = 2000;
     let facenum: number = 3000;
@@ -93,15 +93,19 @@ export function gsjson2ifc(model: gs.IModel): string {
 
             // Add a point to IFC file, keep track of the # no. of the points
             for (const point of facepoints) {
-                file += "#" + pointnum + "= IFCCARTESIANPOINT" + "((" + point[0] +".," + point[1] + ".," + point[2] + "));\n";
+                file += "#" + pointnum + "= IFCCARTESIANPOINT" + "((" + point[0] +".," + point[1] + ".," + point[2] + ".));\n";
                 pointcount.push(pointnum);
                 pointnum++;
             }
 
             // Add a polyline to IFC file, using # no. from above
             file += "#" + wirenum + "= IFCPOLYLOOP" + "((";
-            for (const p of pointcount) {
-                file += "#" + p + ".,";
+            for (let p = 0; p < pointcount.length; p++) {
+                if (p !== pointcount.length - 1) {
+                    file += "#" + pointcount[p] + ",";
+                } else {
+                    file += "#" + pointcount[p];
+                }
             }
             file += "));\n";
 
@@ -117,8 +121,12 @@ export function gsjson2ifc(model: gs.IModel): string {
         // Add brep to IFC file, using # no. from above (facecount), keep track of # no. (counter)
         file += "#" + objnum + "= IFCCLOSEDSHELL ((";
         objnum ++;
-        for (const f of facecount) {
-            file += "#" + f + ".,";
+        for (let f = 0; f < facecount.length; f++) {
+            if (f !== facecount.length - 1) {
+                file += "#" + facecount[f] + ",";
+            } else {
+                file += "#" + facecount[f];
+            }
         }
         file += "));\n";
         file += "#" + objnum + "= IFCFACETEDBREP (#" + (objnum-1) +");\n";
