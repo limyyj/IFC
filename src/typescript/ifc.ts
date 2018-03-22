@@ -1,7 +1,10 @@
 import * as gs from "gs-json";
 
 const header: string =
- `HEADER;
+`
+ISO-10303-21;
+
+HEADER;
 FILE_DESCRIPTION(
     ( 'ViewDefinition [model1]'
      ,'Comment [test file]'
@@ -77,10 +80,10 @@ export function gsjson2ifc(model: gs.IModel): string {
     let objnum: number = 4000;
     let assignnum: number = 10000;
     const objcount: number[] = [];
-    // file += String(model);
-    // const eattribs: gs.IEntAttrib[] = model.getAllEntAttribs();
-    // const tattribs: gs.ITopoAttrib[] = model.getAllTopoAttribs();
-    // const groups: gs.IGroup[] = model.getAllGroups();
+    file += String(model);
+    const eattribs: gs.IEntAttrib[] = model.getAllEntAttribs();
+    const tattribs: gs.ITopoAttrib[] = model.getAllTopoAttribs();
+    const groups: gs.IGroup[] = model.getAllGroups();
     const objs: gs.IObj[] = model.getGeom().getAllObjs();
     for (const obj of objs) {
         const facecount: number[] = [];
@@ -97,7 +100,6 @@ export function gsjson2ifc(model: gs.IModel): string {
                 pointcount.push(pointnum);
                 pointnum++;
             }
-
             // Add a polyline to IFC file, using # no. from above
             file += "#" + wirenum + "= IFCPOLYLOOP" + "((";
             for (let p = 0; p < pointcount.length; p++) {
@@ -116,8 +118,8 @@ export function gsjson2ifc(model: gs.IModel): string {
 
             wirenum += 2;
             facenum ++;
-        }
-
+         }
+         
         // Add brep to IFC file, using # no. from above (facecount), keep track of # no. (counter)
         file += "#" + objnum + "= IFCCLOSEDSHELL ((";
         objnum ++;
@@ -147,7 +149,7 @@ export function gsjson2ifc(model: gs.IModel): string {
         objcount.push(objnum);
         objnum ++;
 
-    //     const value = obj.getAttribValue(eattribs[0]);
+        // const value = obj.getAttribValue(eattribs[0]);
     }
 
     // Assign objects to building
@@ -156,6 +158,6 @@ export function gsjson2ifc(model: gs.IModel): string {
          "',$,'Physical model',$,(#" + o + "),#500);\n";
          assignnum ++;
     }
-    file += "ENDSEC;";
+    file += "ENDSEC;\n\nEND-ISO-10303-21;";
     return file;
 }

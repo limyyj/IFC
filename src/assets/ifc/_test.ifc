@@ -1,3 +1,6 @@
+
+ISO-10303-21;
+
 HEADER;
 FILE_DESCRIPTION(
     ( 'ViewDefinition [model1]'
@@ -47,6 +50,12 @@ DATA;
 #906= IFCDIRECTION((0.,-1.,0.));
 #907= IFCDIRECTION((0.,0.,-1.));
 
+Num Points:8
+Num Objects:1
+   Obj('o0', polymesh, faces:6, wires:0, edges:24, vertices:24)
+Num Entity Attribs:0
+Num Topo Attribs:0
+Num Groups:0
 #1000= IFCCARTESIANPOINT((0.,0.,0.));
 #1001= IFCCARTESIANPOINT((10.,0.,0.));
 #1002= IFCCARTESIANPOINT((10.,10.,0.));
@@ -101,7 +110,9 @@ DATA;
 #4003= IFCPRODUCTDEFINITIONSHAPE($,$,(#4002));
 #4004= IFCAXIS2PLACEMENT3D(#901,$,$);
 #4005= IFCLOCALPLACEMENT(#511,#4004);
-#4006= IFCBUILDINGELEMENTPROXY('1kTvXnbbzCWw8lcMd1dR4o',$,'obj_4006','obj_4006',$,#4006,#4003,$,$);
+#4006= IFCBUILDINGELEMENTPROXY('obj_4006',$,'obj_4006','obj_4006',$,#4006,#4003,$,$);
 
-#10000=IFCRELCONTAINEDINSPATIALSTRUCTURE('2TnxZkTXT08eDuMuhUUFNy',$,'Physical model',$,(#4006),#500);
+#10000=IFCRELCONTAINEDINSPATIALSTRUCTURE('assign_10000',$,'Physical model',$,(#4006),#500);
 ENDSEC;
+
+END-ISO-10303-21;
