@@ -1,9 +1,7 @@
 import * as gs from "gs-json";
 
 const header: string =
-`
-ISO-10303-21;
-
+`ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(
     ( 'ViewDefinition [model1]'
@@ -13,7 +11,7 @@ FILE_DESCRIPTION(
 FILE_NAME(
     '_test.ifc',
     '2018-02-21T09:00:00',
-    ('Joie Lim'),
+    ('Undefinrf'),
     ('NUS'),
     'gsjsonIFC',
     'gsjsonIFC',
@@ -24,7 +22,7 @@ ENDSEC;
 `;
 
 const project: string =
-`#100=IFCPROJECT ("00ZhrqZYLBcgy$rVVaiu2A", $, "IFC Export", $, $, $, $, $, #300);
+`#100=IFCPROJECT ('00ZhrqZYLBcgy$rVVaiu2A', $, 'IFC Export', $, $, $, $, $, #300);
 
 `;
 
@@ -80,7 +78,6 @@ export function gsjson2ifc(model: gs.IModel): string {
     let objnum: number = 4000;
     let assignnum: number = 10000;
     const objcount: number[] = [];
-    file += String(model);
     const eattribs: gs.IEntAttrib[] = model.getAllEntAttribs();
     const tattribs: gs.ITopoAttrib[] = model.getAllTopoAttribs();
     const groups: gs.IGroup[] = model.getAllGroups();
@@ -93,6 +90,7 @@ export function gsjson2ifc(model: gs.IModel): string {
         const f_positions: gs.XYZ[][] = f_points.map((f) => f.map((p) => p.getPosition()));
         for (const facepoints of f_positions) {
             const pointcount: number[] = []; // # no. counter
+            
 
             // Add a point to IFC file, keep track of the # no. of the points
             for (const point of facepoints) {
@@ -112,14 +110,14 @@ export function gsjson2ifc(model: gs.IModel): string {
             file += "));\n";
 
             // Add face from polyline, keep track of # no. of the faces
-            file += "#" + (wirenum + 1) + "= IFCFACEOUTERBOUND" + "(#" + wirenum + ".,T.);\n";
-            file += "#" + facenum + "= IFCFACE" + "(#" + (wirenum + 1) + ".,T.);\n\n";
+            file += "#" + (wirenum + 1) + "= IFCFACEOUTERBOUND" + "(#" + wirenum + ",.T.);\n";
+            file += "#" + facenum + "= IFCFACE" + "((#" + (wirenum + 1) + "));\n\n";
             facecount.push(facenum);
 
             wirenum += 2;
             facenum ++;
          }
-         
+
         // Add brep to IFC file, using # no. from above (facecount), keep track of # no. (counter)
         file += "#" + objnum + "= IFCCLOSEDSHELL ((";
         objnum ++;
@@ -158,6 +156,6 @@ export function gsjson2ifc(model: gs.IModel): string {
          "',$,'Physical model',$,(#" + o + "),#500);\n";
          assignnum ++;
     }
-    file += "ENDSEC;\n\nEND-ISO-10303-21;";
+    file += "ENDSEC;\nEND-ISO-10303-21;";
     return file;
 }
