@@ -22,6 +22,6 @@ export function genModelTest1(): gs.IModel {
             [points[3],points[7],points[4],points[0]],
             [points[7],points[4],points[5],points[6]],
         ]);
-    wall.setAttribValue(b, "Wall")
+    wall.setAttribValue(b, "Wall");
     return m;
 }

@@ -163,11 +163,38 @@ export function createWall(obj: gs.IObj, nums: number[]): string {
     // Calc extrude_dist
     const extrude_dist: number = upperpts[0].getPosition()[2] - lowerpts[0].getPosition()[2];
 
+        // Get pair with shortest dist
+    let shortpair: gs.IPoint[] = [lowerpts[0],lowerpts[1]];
+    for (let i = 0 ; i < lowerpts.length ; i++) {
+        for (let j = i + 1 ; j < lowerpts.length ; j++) {
+            if (threex.vectorFromPointsAtoB(lowerpts[i], lowerpts[j]).length() <= threex.vectorFromPointsAtoB(shortpair[0], shortpair[1]).length()) {
+                shortpair = [lowerpts[i], lowerpts[j]];
+            }
+        }
+    }
+
+    // Get other pair
+    const otherpair: gs.IPoint[] = [];
+    for (const pt of lowerpts) {
+        if ((pt !== shortpair[0]) && (pt !== shortpair[1])) {
+            otherpair.push(pt);
+        }
+    }
+
+    // Set local placement origin at shortpair[0]
+    const originpt: gs.IPoint = shortpair[0];
+    const origincoord: number[] = originpt.getPosition();
+    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + origincoord[0] + ".," + origincoord[1] + ".," + origincoord[2] + ".));\n";
+    file += "#" + nums[4] + "= IFCAXIS2PLACEMENT3D(#" + nums[0] + ",#902, #904);\n";
+    file += "#" + (nums[4] + 1) + "=IFCLOCALPLACEMENT(#511,#" + nums[4] + ");\n";
+    nums[0]++;
+    nums[4]++;
+
     // Add points
     const pointcount: number[] = []; // # no. counter
     for (const pt of lowerpts) {
         const coord: number[] = pt.getPosition();
-        file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + coord[0] +".," + coord[1] + ".," + coord[2] + ".));\n";
+        file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + (coord[0] - origincoord[0]) + ".," + (coord[1] - origincoord[1]) + ".));\n";
         pointcount.push(nums[0]);
         nums[0]++;
     }
@@ -178,9 +205,9 @@ export function createWall(obj: gs.IObj, nums: number[]): string {
             file += "#" + p + ",";
     }
     file += pointcount[0] + "));\n";
-    // Convert to area and extrude *********************************************************!! NEED LOCALPLACEMENT (extrude)
+    // Convert to area and extrude
     file += "#" + nums[2] + "= IFCARBITRARYCLOSEDPROFILEDEF(.AREA., 'face" + nums[2] + "', #" + nums[1] +");\n";
-    file += "#" + nums[3] + "= IFCEXTRUDEAREASOLID(#" + nums[2] + ",#512, #904," + extrude_dist + ");\n";
+    file += "#" + nums[3] + "= IFCEXTRUDEAREASOLID(#" + nums[2] + ",#" + nums[4] +",#904," + extrude_dist + ");\n";
     nums[1]++;
     nums[2]++;
     nums[3]++;
@@ -188,33 +215,14 @@ export function createWall(obj: gs.IObj, nums: number[]): string {
     file += "#" + nums[3] + "= IFCSHAPEREPRESENTATION(#202,'Body','SweptSolid',(#" + (nums[3] - 1) + "));\n";
     nums[3]++;
 
-    // Get pair with shortest dist
-    let shortpair: gs.IPoint[] = [lowerpts[0],lowerpts[1]];
-    for (let i = 0 ; i < lowerpts.length ; i++) {
-        for (let j = i + 1 ; j < lowerpts.length ; j++) {
-            if (threex.vectorFromPointsAtoB(lowerpts[i], lowerpts[j]).length() <= threex.vectorFromPointsAtoB(shortpair[0], shortpair[1]).length()) {
-                shortpair = [lowerpts[i], lowerpts[j]];
-            }
-        }
-    }
-    // Get other pair
-    const otherpair: gs.IPoint[] = [];
-    for (const pt of lowerpts) {
-        if ((pt !== shortpair[0]) && (pt !== shortpair[1])) {
-            otherpair.push(pt);
-        }
-    }
-
     // Get coordinates of midpoints and construct line
-    const x1: number = (shortpair[0].getPosition()[0] + shortpair[1].getPosition()[0])/2;
-    const y1: number = (shortpair[0].getPosition()[1] + shortpair[1].getPosition()[1])/2;
-    const z1: number = (shortpair[0].getPosition()[2] + shortpair[1].getPosition()[2])/2;
-    const x2: number = (otherpair[0].getPosition()[0] + otherpair[1].getPosition()[0])/2;
-    const y2: number = (otherpair[0].getPosition()[1] + otherpair[1].getPosition()[1])/2;
-    const z2: number = (otherpair[0].getPosition()[2] + otherpair[1].getPosition()[2])/2;
-    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + x1 +".," + y1 + ".," + z1 + ".));\n";
+    const x1: number = ((shortpair[0].getPosition()[0] + shortpair[1].getPosition()[0])/2) - origincoord[0];
+    const y1: number = ((shortpair[0].getPosition()[1] + shortpair[1].getPosition()[1])/2) - origincoord[1];
+    const x2: number = ((otherpair[0].getPosition()[0] + otherpair[1].getPosition()[0])/2) - origincoord[0];
+    const y2: number = ((otherpair[0].getPosition()[1] + otherpair[1].getPosition()[1])/2) - origincoord[1];
+    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + x1 +".," + y1 + ".));\n";
     nums[0]++;
-    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + x2 +".," + y2 + ".," + z2 + ".));\n";
+    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + x2 +".," + y2 + ".));\n";
     nums[0]++;
     file += "#" + nums[1] + "= IFCPOLYLINE" + "((" + (nums[0]-2) + "," + (nums[0]-1) + "));\n";
     nums[1]++;
@@ -225,8 +233,9 @@ export function createWall(obj: gs.IObj, nums: number[]): string {
     // Define wall
     file += "#" + nums[3] + "= IFCPRODUCTDEFINITIONSHAPE($,$,(#" + (nums[3]-2) + "," + (nums[3]-1) + "));\n";
     nums[3]++;
-    file += "#" + nums[3] + "= IFCWALLSTANDARDCASE('0ZSjmOcYr8ww8iEjFQxGMf',$,'wall" + nums[3] + "',$,$,$,#" + "," + (nums[3]-1) + ",'wall" + nums[3] + "');\n\n";
+    file += "#" + nums[3] + "= IFCWALLSTANDARDCASE('0ZSjmOcYr8ww8iEjFQxGMf',$,'wall" + nums[3] + "',$,$,#" + nums[4] + "," + (nums[3]-1) + ",'wall" + nums[3] + "');\n\n";
 
+    nums[4]++;
     return file;
 }
 
