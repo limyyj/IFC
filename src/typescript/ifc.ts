@@ -1,93 +1,25 @@
 import * as gs from "gs-json";
-import * as threex from "./libs/threex/threex"
+import * as threex from "./libs/threex/threex";
+import * as func from "./ifcfunc";
 
-const header: string =
-`ISO-10303-21;
-HEADER;
-FILE_DESCRIPTION(
-    ( 'ViewDefinition [model1]'
-     ,'Comment [test file]'
-    )
-    ,'2;1');
-FILE_NAME(
-    '_test.ifc',
-    '2018-02-21T09:00:00',
-    ('Undefinrf'),
-    ('NUS'),
-    'gsjsonIFC',
-    'gsjsonIFC',
-    'test');
-FILE_SCHEMA(('IFC4'));
-ENDSEC;
-
-`;
-
-const project: string =
-`#100=IFCPROJECT ('00ZhrqZYLBcgy$rVVaiu2A', $, 'IFC Export', $, $, $, $, $, #300);
-
-`;
-
-const owner: string =
-`#110= IFCOWNERHISTORY(#111,#115,$,.ADDED.,1320688800,$,$,1320688800);
-#111= IFCPERSONANDORGANIZATION(#112,#113,$);
-#112= IFCPERSON($,'Lim','Joie',$,$,$,$,$);
-#113= IFCORGANIZATION($,'NUS',$,$,$);
-#115= IFCAPPLICATION(#113,'1.0','gs-JSON to IFC for Mobius','gsjsonIFC');
-
-`;
-
-const proj_rep: string =
-`#201= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.0E-5,#210,$);
-#202= IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,#201,$,.MODEL_VIEW.,$);
-#203= IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Axis','Model',*,*,*,*,#201,$,.MODEL_VIEW.,$);
-#210= IFCAXIS2PLACEMENT3D(#901,$,$);
-
-`;
-
-const units: string =
-`#300= IFCUNITASSIGNMENT ((#310, #311, #312, #313));
-#310= IFCSIUNIT (*, .LENGTHUNIT., .MILLI., .METRE.);
-#311= IFCSIUNIT (*, .AREAUNIT., $, .SQUARE_METRE.);
-#312= IFCSIUNIT (*, .VOLUMEUNIT., $, .CUBIC_METRE.);
-#313= IFCSIUNIT (*, .TIMEUNIT., $, .SECOND.);
-
-`;
-
-const building: string =
-`#500= IFCBUILDING('2FCZDorxHDT8NI01kdXi8P',$,'Test Building',$,$,#511,$,$,.ELEMENT.,$,$,$);
-#511= IFCLOCALPLACEMENT($,#512);
-#512= IFCAXIS2PLACEMENT3D(#901,$,$);
-#519= IFCRELAGGREGATES('2YBqaV_8L15eWJ9DA1sGmT',$,$,$,#100,(#500));
-
-`;
-
-const WCS: string=
-`#901= IFCCARTESIANPOINT((0.,0.,0.));
-#902= IFCDIRECTION((1.,0.,0.));
-#903= IFCDIRECTION((0.,1.,0.));
-#904= IFCDIRECTION((0.,0.,1.));
-#905= IFCDIRECTION((-1.,0.,0.));
-#906= IFCDIRECTION((0.,-1.,0.));
-#907= IFCDIRECTION((0.,0.,-1.));
-
-`;
 export function createObj(obj: gs.IObj, nums: number[]): string {
     let file: string = "";
 
+    const points: gs.IPoint[] = obj.getPointsSet();
+    let pointshash: number[] = [];
+    file += func.writePoints3D(points, pointshash, nums);
+
     const facecount: number[] = [];
     // Get points for each face
-    const points: gs.IPoint[][][] = obj.getPoints();
-    const f_points: gs.IPoint[][] = points[1];
-    const f_positions: gs.XYZ[][] = f_points.map((f) => f.map((p) => p.getPosition()));
-    for (const facepoints of f_positions) {
+    const allpoints: gs.IPoint[][][] = obj.getPoints();
+    const f_points: gs.IPoint[][] = allpoints[1];
+    for (const face of f_points) {
+        // Check for same point in lowerpts and take its # number
         const pointcount: number[] = []; // # no. counter
-
-        // Add a point to IFC file, keep track of the # no. of the points
-        for (const point of facepoints) {
-            file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + point[0] +".," + point[1] + ".," + point[2] + ".));\n";
-            pointcount.push(nums[0]);
-            nums[0]++;
+        for (const pt of face) {
+            pointcount.push(func.getPointHash(pt, points, pointshash));
         }
+        
         // Add a polyline to IFC file, using # no. from above
         file += "#" + nums[1] + "= IFCPOLYLOOP" + "((";
         for (let p = 0; p < pointcount.length; p++) {
@@ -132,155 +64,228 @@ export function createObj(obj: gs.IObj, nums: number[]): string {
     nums[3] ++;
     file += "#" + nums[3] + "= IFCLOCALPLACEMENT(#511,#" + (nums[3]-1) + ");\n";
     nums[3] ++;
-    file += "#" + nums[3] + "= IFCBUILDINGELEMENTPROXY('obj_" + nums[3] + "',$,'obj_" + nums[3]
-    + "','obj_" + nums[3] + "',$,#"+ nums[3] + ",#" + counter + ",$,$);\n\n";
-    
+    file += "#" + nums[3] + "= IFCBUILDINGELEMENTPROXY('" + func.AddGUID() + "',$,'obj_" + nums[3]
+    + "','obj_" + nums[3] + "',$,#"+ (nums[3] - 1) + ",#" + counter + ",$,$);\n\n";
+    file += "#" + nums[4] + "= IFCRELCONTAINEDINSPATIALSTRUCTURE('assign_" + nums[4] +
+            "',$,'Physical model',$,(#" + nums[3] + "),#500);\n\n";
+    nums[3] ++;
+    nums[4] ++;
     return file;
 }
 
 export function createWall(obj: gs.IObj, nums: number[]): string {
     let file: string = "";
 
+    // Get and sort unique points
+    let lowerpts: gs.IPoint[] = [];
+    let upperpts: gs.IPoint[] = [];
+    func.sortlowerupper(obj, lowerpts, upperpts);
+
+    // Calc extrude_dist
+    const baseheight: number = lowerpts[0].getPosition()[2];
+    const extrude_dist: number = upperpts[0].getPosition()[2] - baseheight;
+
+    // Set local placement origin at [0,0,baseheight]
+    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((0.,0.," + baseheight + ".));\n";
+    file += "#" + nums[4] + "= IFCAXIS2PLACEMENT3D(#" + nums[0] + ",#904,#902);\n";
+    file += "#" + (nums[4] + 1) + "= IFCLOCALPLACEMENT(#511,#" + nums[4] + ");\n\n";
+    nums[0]++;
+    nums[4]++;
+
+    // Add points and store # in order
+    const pointshash: number[] = []; // # no. counter
+    file += func.writePoints2D(lowerpts, pointshash, nums);
+
+    // Get points for each face
+    const allpts: gs.IPoint[][][] = obj.getPoints();
+    const f_points: gs.IPoint[][] = allpts[1];
+    for (const face of f_points) {
+        // If not all points' z coord == baseheight, its a higher face, skip curr face
+        let lower: number = 1;
+        for (const pt of face) {
+            if (pt.getPosition()[2] !== baseheight) {
+                lower = 0;
+                break;
+            }
+        }
+        if (lower === 0) {
+            continue;
+        }
+
+        if (face.length == 4) {
+            // Check for same point in lowerpts and take its # number
+            const pointcount: number[] = [];
+            for (const pt of face) {
+                pointcount.push(func.getPointHash(pt, lowerpts, pointshash));
+            }
+
+            // Created extruded shape and centre line
+            file += func.writeSweptSolid(pointcount, extrude_dist, nums);
+            file += func.writeCentreline(face, nums);
+
+            // Define wall
+            file += "#" + nums[3] + "= IFCPRODUCTDEFINITIONSHAPE($,$,(#" + (nums[3]-2) + ",#" + (nums[3]-1) + "));\n";
+            nums[3]++;
+            file += "#" + nums[3] + "= IFCWALLSTANDARDCASE('" + func.AddGUID() + "',$,'wall" + nums[3] + "',$,$,#" + nums[4] + ",#" + (nums[3]-1) + ",'wall" + nums[3] + "');\n";
+            nums[4]++;
+
+            file += "#" + nums[4] + "= IFCRELCONTAINEDINSPATIALSTRUCTURE('assign_" + nums[4] +
+                    "',$,'Physical model',$,(#" + nums[3] + "),#500);\n\n";
+            nums[3] ++;
+            nums[4] ++;
+        } else if (face.length > 4) {
+            // Get pair with shortest dist
+            let shortpair: number[] = [0,1];
+            for (let i = 0 ; i < face.length ; i++) {
+                for (let j = i + 1 ; j < face.length ; j++) {
+                    if (threex.vectorFromPointsAtoB(face[i], face[j]).length() <= threex.vectorFromPointsAtoB(face[shortpair[0]],face[shortpair[1]]).length()) {
+                        shortpair = [i, j];
+                    }
+                }
+            }
+
+            for (let i = 0 ; i < ((face.length - 2) / 2) ; i ++) {
+                // Get new numbers
+                let p1 = shortpair[0];
+                let p2 = shortpair[0] - 1;
+                let p3 = shortpair[1] + 1;
+                let p4 = shortpair[1];
+                
+                // Shift numbers if out of range or overlap with other
+                if (p2 < 0) {
+                    p2 = face.length - 1;
+                }
+                if (p2 == p4) {
+                    p2 -= 1;
+                }
+                if (p3 > face.length - 1) {
+                    p3 = 0;
+                }
+                if (p3 == p1) {
+                    p3 -= 1;
+                }
+
+                // Get points for current wall segment
+                let currpoints: gs.IPoint[] = [face[p1], face[p2], face[p3], face[p4]];
+                
+                // Replace numbers with new numbers
+                shortpair[0] = p2;
+                shortpair[1] = p3;
+
+                // Check for same point in lowerpts and take its # number
+                const pointcount: number[] = [];
+                for (const pt of currpoints) {
+                    pointcount.push(func.getPointHash(pt, lowerpts, pointshash));
+                }
+
+                // Created extruded shape and centre line
+                file += func.writeSweptSolid(pointcount, extrude_dist, nums);
+                file += func.writeCentreline(currpoints, nums);
+
+                // Define wall
+                file += "#" + nums[3] + "= IFCPRODUCTDEFINITIONSHAPE($,$,(#" + (nums[3]-2) + ",#" + (nums[3]-1) + "));\n";
+                nums[3]++;
+                file += "#" + nums[3] + "= IFCWALLSTANDARDCASE('" + func.AddGUID() + "',$,'wall" + nums[3] + "',$,$,#" + nums[4] + ",#" + (nums[3]-1) + ",'wall" + nums[3] + "');\n";
+                nums[4]++;
+
+                file += "#" + nums[4] + "= IFCRELCONTAINEDINSPATIALSTRUCTURE('assign_" + nums[4] +
+                        "',$,'Physical model',$,(#" + nums[3] + "),#500);\n\n";
+                nums[3] ++;
+                nums[4] ++;
+            }
+        }
+    }
+    return file;
+}
+
+export function createSlab(obj: gs.IObj, nums: number[]): string {
+    let file: string = "";
+
     // Get unique points
     const points: gs.IPoint[] = obj.getPointsSet();
 
     // Get lowerpts and upperpts
-    const lowerpts: gs.IPoint[] = [points[0],points[0],points[0],points[0]];
-    const upperpts: gs.IPoint[] = [points[0],points[0],points[0],points[0]];
-    for (const pt of points) {
-        if (pt.getPosition()[2] <= lowerpts[0].getPosition()[2]) {
-            lowerpts[3] = lowerpts[2];
-            lowerpts[2] = lowerpts[1];
-            lowerpts[1] = lowerpts[0];
-            lowerpts[0] = pt;
-        } else {
-            upperpts[3] = upperpts[2];
-            upperpts[2] = upperpts[1];
-            upperpts[1] = upperpts[0];
-            upperpts[0] = pt;
-        }
-    }
+    let lowerpts: gs.IPoint[] = [];
+    let upperpts: gs.IPoint[] = [];
+    func.sortlowerupper(obj, lowerpts, upperpts);
+
     // Calc extrude_dist
-    const extrude_dist: number = upperpts[0].getPosition()[2] - lowerpts[0].getPosition()[2];
+    const baseheight: number = lowerpts[0].getPosition()[2];
+    const extrude_dist: number = upperpts[0].getPosition()[2] - baseheight;
 
-        // Get pair with shortest dist
-    let shortpair: gs.IPoint[] = [lowerpts[0],lowerpts[1]];
-    for (let i = 0 ; i < lowerpts.length ; i++) {
-        for (let j = i + 1 ; j < lowerpts.length ; j++) {
-            if (threex.vectorFromPointsAtoB(lowerpts[i], lowerpts[j]).length() <= threex.vectorFromPointsAtoB(shortpair[0], shortpair[1]).length()) {
-                shortpair = [lowerpts[i], lowerpts[j]];
-            }
-        }
-    }
-
-    // Get other pair
-    const otherpair: gs.IPoint[] = [];
-    for (const pt of lowerpts) {
-        if ((pt !== shortpair[0]) && (pt !== shortpair[1])) {
-            otherpair.push(pt);
-        }
-    }
-
-    // Set local placement origin at shortpair[0]
-    const originpt: gs.IPoint = shortpair[0];
-    const origincoord: number[] = originpt.getPosition();
-    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + origincoord[0] + ".," + origincoord[1] + ".," + origincoord[2] + ".));\n";
-    file += "#" + nums[4] + "= IFCAXIS2PLACEMENT3D(#" + nums[0] + ",#902, #904);\n";
-    file += "#" + (nums[4] + 1) + "=IFCLOCALPLACEMENT(#511,#" + nums[4] + ");\n";
+    // Set local placement origin at [0,0,0]
+    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((0.,0.,0.));\n";
+    file += "#" + nums[4] + "= IFCAXIS2PLACEMENT3D(#" + nums[0] + ",#904, #902);\n";
+    file += "#" + (nums[4] + 1) + "= IFCLOCALPLACEMENT(#511,#" + nums[4] + ");\n";
     nums[0]++;
     nums[4]++;
 
     // Add points
-    const pointcount: number[] = []; // # no. counter
-    for (const pt of lowerpts) {
-        const coord: number[] = pt.getPosition();
-        file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + (coord[0] - origincoord[0]) + ".," + (coord[1] - origincoord[1]) + ".));\n";
-        pointcount.push(nums[0]);
-        nums[0]++;
-    }
+    const pointshash: number[] = []; // # no. counter
+    file += func.writePoints2D(lowerpts, pointshash, nums);
 
-    // Add a polyline to IFC file, using # no. from above
-    file += "#" + nums[1] + "= IFCPOLYLINE" + "((";
-    for (const p of pointcount) {
-            file += "#" + p + ",";
-    }
-    file += pointcount[0] + "));\n";
-    // Convert to area and extrude
-    file += "#" + nums[2] + "= IFCARBITRARYCLOSEDPROFILEDEF(.AREA., 'face" + nums[2] + "', #" + nums[1] +");\n";
-    file += "#" + nums[3] + "= IFCEXTRUDEAREASOLID(#" + nums[2] + ",#" + nums[4] +",#904," + extrude_dist + ");\n";
-    nums[1]++;
-    nums[2]++;
-    nums[3]++;
-    // Shape representation for Body
-    file += "#" + nums[3] + "= IFCSHAPEREPRESENTATION(#202,'Body','SweptSolid',(#" + (nums[3] - 1) + "));\n";
-    nums[3]++;
+    const allpts: gs.IPoint[][][] = obj.getPoints();
+    const f_points: gs.IPoint[][] = allpts[1];
+    for (const face of f_points) {
+        // If not all points' z coord == baseheight, its a higher face, skip curr face
+        let lower: number = 1;
+        for (const pt of face) {
+            if (pt.getPosition()[2] !== baseheight) {
+                lower = 0;
+                break;
+            }
+        }
+        if (lower === 0) {
+            continue;
+        }
 
-    // Get coordinates of midpoints and construct line
-    const x1: number = ((shortpair[0].getPosition()[0] + shortpair[1].getPosition()[0])/2) - origincoord[0];
-    const y1: number = ((shortpair[0].getPosition()[1] + shortpair[1].getPosition()[1])/2) - origincoord[1];
-    const x2: number = ((otherpair[0].getPosition()[0] + otherpair[1].getPosition()[0])/2) - origincoord[0];
-    const y2: number = ((otherpair[0].getPosition()[1] + otherpair[1].getPosition()[1])/2) - origincoord[1];
-    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + x1 +".," + y1 + ".));\n";
-    nums[0]++;
-    file += "#" + nums[0] + "= IFCCARTESIANPOINT" + "((" + x2 +".," + y2 + ".));\n";
-    nums[0]++;
-    file += "#" + nums[1] + "= IFCPOLYLINE" + "((" + (nums[0]-2) + "," + (nums[0]-1) + "));\n";
-    nums[1]++;
-    // Shape representation for Axis
-    file += "#" + nums[3] + "= IFCSHAPEREPRESENTATION(#203,'Axis','Curve2D',(#" + (nums[1] - 1) + "));\n";
-    nums[3]++;
+        // Check for same point in lowerpts and take its # number
+        const pointcount: number[] = [];
+        for (const pt of face) {
+            pointcount.push(func.getPointHash(pt, lowerpts, pointshash));
+        }
 
-    // Define wall
-    file += "#" + nums[3] + "= IFCPRODUCTDEFINITIONSHAPE($,$,(#" + (nums[3]-2) + "," + (nums[3]-1) + "));\n";
-    nums[3]++;
-    file += "#" + nums[3] + "= IFCWALLSTANDARDCASE('0ZSjmOcYr8ww8iEjFQxGMf',$,'wall" + nums[3] + "',$,$,#" + nums[4] + "," + (nums[3]-1) + ",'wall" + nums[3] + "');\n\n";
+        // Created extruded shape and centre line
+        file += func.writeSweptSolid(pointcount, extrude_dist, nums);
 
-    nums[4]++;
+        // Define wall
+        file += "#" + nums[3] + "= IFCPRODUCTDEFINITIONSHAPE($,$,(#" + (nums[3]-2) + ",#" + (nums[3]-1) + "));\n";
+        nums[3]++;
+        file += "#" + nums[3] + "= IFCSLAB('" + func.AddGUID() + "',$,'slab" + nums[3] + "',$,$,#" + nums[4] + ",#" + (nums[3]-1) + ",'slab" + nums[3] + "',.FLOOR.);\n\n";
+        nums[4]++;
+
+        file += "#" + nums[4] + "= IFCRELCONTAINEDINSPATIALSTRUCTURE('assign_" + nums[4] +
+                "',$,'Physical model',$,(#" + nums[3] + "),#500);\n\n";
+        nums[3] ++;
+        nums[4] ++;
+    }       
     return file;
 }
 
-
-
-
-
-
-
-
 export function gsjson2ifc(model: gs.IModel): string {
     // Initialise headers and start, initialise counters
-    let file: string = header + "DATA;\n" + project + owner + proj_rep + units + building + WCS;
-    let nums: number[] = [1000, 2000, 3000, 4000, 10000]
-    const objcount: number[] = [];
-    // const eattribs: gs.IEntAttrib[] = model.getAllEntAttribs();
-    // const tattribs: gs.ITopoAttrib[] = model.getAllTopoAttribs();
-    // const groups: gs.IGroup[] = model.getAllGroups();
-    
+    let file: string = func.AddHeader();
+
+    let nums: number[] = [1000, 2000, 3000, 4000, 5000];
+
     // Get Element_Type attrib
-    const element_type: gs.IEntAttrib = model.getEntAttrib("Element_Type", gs.EGeomType.objs)
+    const element_type: gs.IEntAttrib = model.getEntAttrib("Element_Type", gs.EGeomType.objs);
     // Get all objects
     const objs: gs.IObj[] = model.getGeom().getAllObjs();
-    
+
     for (const obj of objs) {
-        if (obj.getAttribValue(element_type) == "Wall") {
+        if (obj.getAttribValue(element_type) === "Wall") {
         // Generate string for creating a wall and add to file
             let addobj: string = createWall(obj, nums);
-            file += addobj
+            file += addobj;
+        } else if (obj.getAttribValue(element_type) === "Slab") {
+            let addobj: string = createSlab(obj, nums);
+            file += addobj;
         } else {
         // Generate string for creating an object and add to file
             let addobj: string = createObj(obj, nums);
             file += addobj;
         }
-
-        // Update objcount and objnum
-        objcount.push(nums[3]);
-        nums[3] ++;
-    }
-
-    // Assign objects to building
-    for (const o of objcount) {
-         file += "#" + nums[4] + "=IFCRELCONTAINEDINSPATIALSTRUCTURE('assign_" + nums[4] +
-         "',$,'Physical model',$,(#" + (nums[3]-1) + "),#500);\n";
-         nums[4] ++;
     }
 
     file += "ENDSEC;\nEND-ISO-10303-21;";
